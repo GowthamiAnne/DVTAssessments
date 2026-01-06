@@ -1,7 +1,11 @@
 package com.airline.loyalty;
 
+import com.airline.loyalty.model.PointsQuoteRequest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+
+import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -10,9 +14,13 @@ import io.vertx.junit5.VertxTestContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
-
 import java.net.ServerSocket;
 import java.io.IOException;
+import java.time.LocalDate;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+
+import static io.restassured.RestAssured.given;
 
 @ExtendWith(VertxExtension.class)
 public abstract class BaseComponentTest {
@@ -20,6 +28,7 @@ public abstract class BaseComponentTest {
     protected WireMockServer promoServiceMock;
     protected int appPort;
     protected String baseUrl;
+    
 
     @BeforeEach
     void setUp(Vertx vertx, VertxTestContext testContext) throws IOException {
@@ -87,4 +96,36 @@ public abstract class BaseComponentTest {
             return socket.getLocalPort();
         }
     }
+    
+    public void stubFxRate(String from, String to, double rate) {
+        fxServiceMock.stubFor(get(urlPathEqualTo("/v1/rates"))
+            .withQueryParam("from", equalTo(from))
+            .withQueryParam("to", equalTo(to))
+            .willReturn(okJson("""
+                    {"fromCurrency":"%s","toCurrency":"%s","rate":%f,"timestamp":"%s"}
+                    """.formatted(from, to, rate, LocalDate.now().toString()))));
+    }
+	
+	public void stubPromo(String promoCode, double multiplier, LocalDate expiry, boolean active) {
+        promoServiceMock.stubFor(get(urlPathEqualTo("/v1/promos/%s".formatted(promoCode)))
+            .willReturn(okJson("""
+                    {
+                        "promoCode": "%s",
+                        "bonusMultiplier": %f,
+                        "expiryDate": "%s",
+                        "active": %s
+                    }
+                    """.formatted(promoCode, multiplier, expiry.toString(), active))));
+    }
+
+	public ValidatableResponse postQuote(PointsQuoteRequest request) {
+	    return given()
+	            .baseUri(baseUrl)
+	            .contentType(ContentType.JSON)
+	            .body(request)
+	            .when()
+	            .post("/v1/points/quote")
+	            .then();
+	}
+
 }
