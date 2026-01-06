@@ -67,6 +67,6 @@ Full component & integration automation testing
 
 Real HTTP server + WireMock stubs
 
-Coverage enforced via JaCoCo (≥80%)
+Coverage enforced via JaCoCo
 COPY target/points-quote-service-*.jar /app.jar
 EXPOSE 8080 9
